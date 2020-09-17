@@ -231,20 +231,6 @@ Here's a handy guide to getting started developing with Velero.  This guide walk
 
 In this example, velero install adds the "--image" flag which uses the tagged image in dockerhub and uses your aws credentials to configure the backup controller
 
-export VERSION=dev-dave-0914
-export BUCKET=test-velero-migration
-export REGION=us-east-2
-export SECRETFILE=credentials-velero   
-export IMAGE=hub.docker.com/<dockerhubid>/velero:$VERSION
-
-velero install \\
-  --provider aws \\
-  --plugins velero/velero-plugin-for-aws:latest \\
-  --bucket $BUCKET \\
-  --prefix $PREFIX \\
-  --backup-location-config region=$REGION \\
-  --snapshot-location-config region=$REGION \\
-  --secret-file $SECRETFILE \\
-  --image $IMAGE
+  ![dockerhubveleroinstall](/dev-guide-images/dockerhubveleroinstall.png)
 
 # Hopefully, this gets you started! Enjoy Velero and thank you for your contribution!
