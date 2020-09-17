@@ -2,10 +2,20 @@
 
 timestamp=`date +%m%d%H%M`
 
+export CLUSTER=velero-dev
+
+echo ""
+echo "INFO: Delete testing cluster if it already exists"
+if [ "kind get clusters | grep $CLUSTER" ]; then
+   kind delete cluster --name $CLUSTER
+fi
+
 echo ""
 echo "INFO: Setting up testing cluster"
 
-kind create cluster --image=kindest/node:v1.16.4 --name velero-dev || exit 1
+# first create a kind cluster with a set version of v1.16.4 - you will upgrade this later
+kind create cluster --name=$CLUSTER || exit 1
+#kind create cluster --image=kindest/node:v1.16.4 --name=$CLUSTER || exit 1
 
 # onboarding sample all with items that belong to multiple
 # api groups, ie horizontalpodscaling
@@ -16,30 +26,40 @@ kubectl apply -f myexample-test.yaml
 # should return one object
 kubectl get hpa php-apache-autoscaler -n myexample 
 
-# setting up velero
-export BUCKET=brito-rafa-velero
-export REGION=us-east-2
-export SECRETFILE=credentials-velero # bring your own credentials - see credentials-velero.example for an example
+# Here's the aws structure
+# BUCKET = name of S3 bucket
+# PREFIX = name of folder under S3 bucket (BUCKET)
+# then there is a folder named "backups" under PREFIX
+# VERSION = the folder under backups that contains the json gzips
 
-export VERSION=dev-2251-0428-b
+# setting up velero
+export BUCKET=test-velero-migration
+export REGION=us-east-2
+export SECRETFILE=credentials-dave   # bring your own credentials - see credentials-velero.example for an example
+export VERSION=dev-dave-0916
 export PREFIX=$VERSION
 
-# installing with 1.3.1 initially
+#export IMAGE=velero/velero:v1.4.0
+
+# installing with 1.5 initially
 echo ""
 echo "INFO: Installing Velero default"
 velero install \
   --provider aws \
-  --plugins velero/velero-plugin-for-aws:v1.0.0 \
+  --plugins velero/velero-plugin-for-aws:latest \
   --bucket $BUCKET \
   --prefix $PREFIX \
   --backup-location-config region=$REGION \
   --snapshot-location-config region=$REGION \
-  --secret-file $SECRETFILE 
+  --secret-file $SECRETFILE
+  #--secret-file $SECRETFILE \
+  #--image $IMAGE
+  
 
 echo ""
 echo "INFO: Taking a Velero default backup"
-# this backup will be used to compare content 2251-patch and 1.3.1 default
-velerodefaultbackup="clusterlevel-default-1-3-1-$timestamp"
+# this backup will be used to compare content from dockerhub velero image and 1.5 default
+velerodefaultbackup="clusterlevel-default-1-5-$timestamp"
 velero backup create $velerodefaultbackup
 
 while  [ "$(velero backup get ${velerodefaultbackup} | tail -1 | awk '{print $2}')" != "Completed" ]; do echo "Waiting backup... Break if it is taking longer than expected..." && velero backup get ${velerodefaultbackup} | tail -1 && sleep 10 ; done
@@ -51,22 +71,25 @@ echo ""
 echo "INFO: Installing Velero $VERSION testing version"
 kubectl delete namespace velero
 
-export IMAGE=quay.io/brito_rafa/velero:$VERSION
+# Note:  this velero install adds the "--image" flag which uses the image in dockerhub
+
+export DHIMAGE=hub.docker.com/bikeskinh/velero:$VERSION
 
 velero install \
   --provider aws \
-  --plugins velero/velero-plugin-for-aws:v1.0.0 \
+  --plugins velero/velero-plugin-for-aws:latest \
   --bucket $BUCKET \
   --prefix $PREFIX \
   --backup-location-config region=$REGION \
   --snapshot-location-config region=$REGION \
   --secret-file $SECRETFILE \
-  --image $IMAGE
+  --image $DHIMAGE
 
 echo "INFO: Image running"
 # showing that velero is now running with patch version
 kubectl get deployment velero -n velero -o yaml | grep -m 1 'image:'
 
+# enable API GroupVersions
 echo "INFO: Enabling All Versions backup"
 kubectl patch deployment velero --patch "$(cat velero-allversions-patch.yaml)" -n velero || exit 1
 
@@ -82,17 +105,18 @@ echo ""
 echo "INFO: Testing restore..."
 
 echo "INFO: Deleting initial cluster..."
-kind delete cluster --name=velero-dev
+kind delete cluster --name=$CLUSTER
 
 echo ""
 echo "INFO: Creating a brand new k8s cluster, with a higher k8s version..."
-kind create cluster --image=kindest/node:v1.18.0 --name velero-dev || exit 1
+kind create cluster --name=$CLUSTER || exit 1
+#kind create cluster --image=kindest/node:v1.18.0 --name $CLUSTER || exit 1
 
 echo ""
-echo "INFO: Installing Velero 1.3.1 default"
+echo "INFO: Installing Velero 1.5 default"
 velero install \
   --provider aws \
-  --plugins velero/velero-plugin-for-aws:v1.0.0 \
+  --plugins velero/velero-plugin-for-aws:latest \
   --bucket $BUCKET \
   --prefix $PREFIX \
   --backup-location-config region=$REGION \
@@ -103,11 +127,10 @@ echo "INFO: Waiting Velero controller to start..."
 
 while  [ "$(velero backup get ${velerotestingbackup} 2>/dev/null | tail -1 | awk '{print $2}')" != "Completed" ]; do echo "Waiting Velero controller... Break if it is taking multiple minutes ..." && sleep 30 ; done
 
-echo ""
-echo "INFO: Restoring from backup taken with 2251-patch"
+# restore from dockerhub image backup
 
 if  [ "$(velero backup get | tail -1 | awk '{print $1}')" == "${velerotestingbackup}" ]; then
-	# restoring from backup taken with 2251-patch
+	# restoring from backup taken with dockerhub image
 	velero restore create --from-backup ${velerotestingbackup} || exit 2
 else
 	echo "ERROR: Could not find backup ${velerotestingbackup}"
@@ -142,7 +165,7 @@ cd test/${velerodefaultbackup}
 velero backup download ${velerodefaultbackup}
 tar -xvzf ${velerodefaultbackup}-data.tar.gz
 
-# the intent is to verify the preferred version from the patch matches the default 1.3.1
+# the intent is to verify the preferred version from the patch matches the default 1.5
 echo ""
 echo "INFO: Comparing the two backups - ignore errors on velero objects and time based objects - some might not exist among the two backups"
 echo ""
@@ -153,4 +176,4 @@ cd ../../
 
 echo ""
 echo "INFO: Deleting cluster"
-kind delete cluster --name=velero-dev
+kind delete cluster --name=$CLUSTER
