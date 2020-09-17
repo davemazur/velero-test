@@ -32,7 +32,7 @@ Here's a handy guide to getting started developing with Velero.  This guide walk
   - https://docs.docker.com/buildx/working-with-buildx/
   - Select "Apply & Restart" docker
 
-  ![dockerbuildx](/dev-guide-images/dockerbuildx.png)
+     ![dockerbuildx](/dev-guide-images/dockerbuildx.png)
 
 - Where to get more information
   - https://www.docker.com/products/docker-desktop
@@ -48,7 +48,7 @@ Here's a handy guide to getting started developing with Velero.  This guide walk
 
 - Brew installs the Velero client at
   - /usr/local/Cellar/velero/1.5.0/bin/velero
-  - -and- creates a symlink at
+  - and creates a symlink at:
   - /usr/local/bin/velero
   - Why is this useful?  If you build a new version of the Velero client and want to replace it later
 
@@ -57,10 +57,10 @@ Here's a handy guide to getting started developing with Velero.  This guide walk
   - Follow the steps for installing the client and setting up username, commit email and credentials
 - You will be using github from the terminal session
 - Install the github client
-- % brew install git
-- % git version
+  - % brew install git
+  - % git version
 
-  ![gitversion](/dev-guide-images/gitversion.png)
+    ![gitversion](/dev-guide-images/gitversion.png)
 
 - [note] need a command to make sure you can access your github account
 
@@ -68,7 +68,8 @@ Here's a handy guide to getting started developing with Velero.  This guide walk
 - https://docs.docker.com/docker-hub/
 - You will use this to push/pull container images from the registry
 - In the terminal session
-- % docker login username=yourhubusername email=youremail
+
+  - % docker login username=yourhubusername email=youremail
   - Using your dockerhub username/password
 - You can also use Quay, Harbor or other image registry
 
@@ -84,8 +85,8 @@ Here's a handy guide to getting started developing with Velero.  This guide walk
   ![creates3bucket](/dev-guide-images/creates3bucket.png)
 
 - In a terminal session on the mac, install the aws cmd line tool
-- % brew install awscli
-- % aws help
+  - % brew install awscli
+  - % aws help
 - Next, setup aws credentials
   - This is used to make programmatic calls to aws from the aws cli
 
@@ -100,7 +101,7 @@ Here's a handy guide to getting started developing with Velero.  This guide walk
 - Next use the access key to connect the aws cli on your mac to your aws account
   - % aws configure
 
-  ![awsconfigure](/dev-guide-images/awsconfigure.png)
+    ![awsconfigure](/dev-guide-images/awsconfigure.png)
 
   - Enter your access key id and secret access key from the .csv key file
   - Select your aws region
@@ -109,14 +110,14 @@ Here's a handy guide to getting started developing with Velero.  This guide walk
   - % aws s3 ls
   - You should see the S3 bucket you created
 
-  ![awss3ls](/dev-guide-images/awss3ls.png)
+      ![awss3ls](/dev-guide-images/awss3ls.png)
 
 - [Note]  You can use another approved cloud provider besides AWS (i.e. Google Cloud, Microsoft Azure, etc)]
 - In your terminal session, go to your home dir and check for the .aws credentials directory
   - % cd ~
   - % ls -al
 
-  ![awscreddir](/dev-guide-images/awscreddir.png)
+      ![awscreddir](/dev-guide-images/awscreddir.png)
 
 ## Install JSON helper utility "jq" on the Mac
 - % brew install jq
@@ -174,8 +175,8 @@ Here's a handy guide to getting started developing with Velero.  This guide walk
 - Install the Velero backup controller image in the cluster
   - % velero install .
 - Restore the cluster contents from backup
-  - % Velero restore create --from-backup <xxxx>
-- % Kind get clusters
+  - % velero restore create --from-backup <xxxx>
+- % kind get clusters
 
 
 # Now let's GO dig into the development
@@ -219,9 +220,9 @@ Here's a handy guide to getting started developing with Velero.  This guide walk
 
 - Create a tag using the image id from docker image ls
 - % docker tag <image id> <dockerhubid><image name>:<version>
-- % docker tag f67d7a9378bd bikeskinh/velero:v1
+- % docker tag f67d7a9378bd <dockerhubid>/velero:v1
 - Now, push the tagged image to docker hub
-- % docker push bikeskinh/velero
+- % docker push <dockerhubid>/velero
 - Go into docker hub and check that the tag has been pushed
 
   ![dockerhubpushedimage](/dev-guide-images/dockerhubpushedimage.png)
@@ -234,16 +235,16 @@ export VERSION=dev-dave-0914
 export BUCKET=test-velero-migration
 export REGION=us-east-2
 export SECRETFILE=credentials-velero   
-export IMAGE=hub.docker.com/bikeskinh/velero:$VERSION
+export IMAGE=hub.docker.com/<dockerhubid>/velero:$VERSION
 
-velero install \
-  --provider aws \
-  --plugins velero/velero-plugin-for-aws:latest \
-  --bucket $BUCKET \
-  --prefix $PREFIX \
-  --backup-location-config region=$REGION \
-  --snapshot-location-config region=$REGION \
-  --secret-file $SECRETFILE \
+velero install \\
+  --provider aws \\
+  --plugins velero/velero-plugin-for-aws:latest \\
+  --bucket $BUCKET \\
+  --prefix $PREFIX \\
+  --backup-location-config region=$REGION \\
+  --snapshot-location-config region=$REGION \\
+  --secret-file $SECRETFILE \\
   --image $IMAGE
 
 # Hopefully, this gets you started! Enjoy Velero and thank you for your contribution!
