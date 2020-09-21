@@ -1,5 +1,8 @@
 #set -x
 
+# Goal of this script
+#   - show that you can migrate across multiple k8s versions (i.e.  k8s 1.14 to k8s 1.17)
+
 timestamp=`date +%m%d%H%M`
 
 export CLUSTER=velero-dev
