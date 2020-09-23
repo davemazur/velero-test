@@ -1,7 +1,7 @@
 #set -x
 
 # Goal of this script
-#   - show that you can migrate across multiple k8s versions (i.e.  k8s 1.14 to k8s 1.17)
+#   - show that you can migrate across multiple k8s versions (i.e.  k8s 1.18 to k8s 1.19)
 
 timestamp=`date +%m%d%H%M`
 
@@ -16,9 +16,10 @@ fi
 echo ""
 echo "INFO: Setting up testing cluster"
 
-# first create a kind cluster with a set version of v1.16.4 - you will upgrade this later
-kind create cluster --name=$CLUSTER || exit 1
-#kind create cluster --image=kindest/node:v1.16.4 --name=$CLUSTER || exit 1
+# get tags from https://hub.docker.com/r/kindest/node/tags
+# first create a kind cluster with a set version of v1.18.2 - you will upgrade this later
+#kind create cluster --name=$CLUSTER || exit 1
+kind create cluster --image=kindest/node:v1.18.2 --name=$CLUSTER || exit 1
 
 # onboarding sample all with items that belong to multiple
 # api groups, ie horizontalpodscaling
@@ -39,44 +40,44 @@ kubectl get hpa php-apache-autoscaler -n myexample
 export BUCKET=test-velero-migration
 export REGION=us-east-2
 export SECRETFILE=credentials-dave   # bring your own credentials - see credentials-velero.example for an example
-export VERSION=dev-dave-0916
+export VERSION=dev-dave-0923b
 export PREFIX=$VERSION
 
-#export IMAGE=velero/velero:v1.4.0
+export VELEROTAG=latest
+export IMAGE=velero/velero:$VELEROTAG
 
-# installing with 1.5 initially
+# installing with velero latest initially
 echo ""
-echo "INFO: Installing Velero default"
+echo "INFO: Installing Velero $VELEROTAG"
 velero install \
   --provider aws \
-  --plugins velero/velero-plugin-for-aws:latest \
+  --plugins velero/velero-plugin-for-aws:$VELEROTAG \
   --bucket $BUCKET \
   --prefix $PREFIX \
   --backup-location-config region=$REGION \
   --snapshot-location-config region=$REGION \
-  --secret-file $SECRETFILE
-  #--secret-file $SECRETFILE \
-  #--image $IMAGE
+  --secret-file $SECRETFILE \
+  --image $IMAGE
   
 
 echo ""
-echo "INFO: Taking a Velero default backup"
+echo "INFO: Taking a Velero $VELEROTAG backup"
 # this backup will be used to compare content from dockerhub velero image and 1.5 default
-velerodefaultbackup="clusterlevel-default-1-5-$timestamp"
+velerodefaultbackup="clusterlevel-$VELEROTAG-$timestamp"
 velero backup create $velerodefaultbackup
 
 while  [ "$(velero backup get ${velerodefaultbackup} | tail -1 | awk '{print $2}')" != "Completed" ]; do echo "Waiting backup... Break if it is taking longer than expected..." && velero backup get ${velerodefaultbackup} | tail -1 && sleep 10 ; done
 
-echo "INFO: Default backup complete"
+echo "INFO: Velero $VELEROTAG backup complete"
 
 # Deleting current velero deployment and installing with the patched release
 echo ""
-echo "INFO: Installing Velero $VERSION testing version"
+echo "INFO: Installing Velero local build version"
 kubectl delete namespace velero
 
 # Note:  this velero install adds the "--image" flag which uses the image in dockerhub
-
-export DHIMAGE=hub.docker.com/bikeskinh/velero:$VERSION
+export TAG=dev-0922
+export DHIMAGE=docker.io/bikeskinh/velero:$TAG
 
 velero install \
   --provider aws \
@@ -97,26 +98,26 @@ echo "INFO: Enabling All Versions backup"
 kubectl patch deployment velero --patch "$(cat velero-allversions-patch.yaml)" -n velero || exit 1
 
 echo ""
-echo "INFO: Creating testing backup"
+echo "INFO: Creating $TAG backup"
 # create the first backup with the new image
-velerotestingbackup="clusterlevel-$VERSION-$timestamp"
+velerotestingbackup="clusterlevel-$TAG-$timestamp"
 velero backup create ${velerotestingbackup}
 
 while  [ "$(velero backup get ${velerotestingbackup} | tail -1 | awk '{print $2}')" != "Completed" ]; do echo "Waiting backup... Break if it is taking longer than expected..." && velero backup get ${velerotestingbackup} | tail -1 && sleep 10 ; done
-
-echo ""
-echo "INFO: Testing restore..."
 
 echo "INFO: Deleting initial cluster..."
 kind delete cluster --name=$CLUSTER
 
 echo ""
-echo "INFO: Creating a brand new k8s cluster, with a higher k8s version..."
-kind create cluster --name=$CLUSTER || exit 1
-#kind create cluster --image=kindest/node:v1.18.0 --name $CLUSTER || exit 1
+echo "INFO: Testing restore..."
 
 echo ""
-echo "INFO: Installing Velero 1.5 default"
+echo "INFO: Creating a brand new k8s cluster, with a higher k8s version..."
+#kind create cluster --name=$CLUSTER || exit 1
+kind create cluster --image=kindest/node:v1.19.0 --name $CLUSTER || exit 1
+
+echo ""
+echo "INFO: Installing Velero $IMAGE"
 velero install \
   --provider aws \
   --plugins velero/velero-plugin-for-aws:latest \
@@ -124,16 +125,22 @@ velero install \
   --prefix $PREFIX \
   --backup-location-config region=$REGION \
   --snapshot-location-config region=$REGION \
-  --secret-file $SECRETFILE 
+  --secret-file $SECRETFILE \
+  --image $IMAGE
 
 echo "INFO: Waiting Velero controller to start..."
 
 while  [ "$(velero backup get ${velerotestingbackup} 2>/dev/null | tail -1 | awk '{print $2}')" != "Completed" ]; do echo "Waiting Velero controller... Break if it is taking multiple minutes ..." && sleep 30 ; done
 
+echo "INFO:  Restoring from backup taken with $DHIMAGE"
+
 # restore from dockerhub image backup
 
-if  [ "$(velero backup get | tail -1 | awk '{print $1}')" == "${velerotestingbackup}" ]; then
-	# restoring from backup taken with dockerhub image
+# restoring from backup taken with dockerhub image
+# something changed in the "velero backup get" logic from rafael's test
+# the order returned from "velero backup get" looks like it is sorted in alphabetical order and tail -1 will not always return the correct one
+# added ${velerotestingbackup} to "velero backup get"
+if  [ "$(velero backup get ${velerotestingbackup} | tail -1 | awk '{print $1}')" == "${velerotestingbackup}" ]; then
 	velero restore create --from-backup ${velerotestingbackup} || exit 2
 else
 	echo "ERROR: Could not find backup ${velerotestingbackup}"
@@ -168,7 +175,7 @@ cd test/${velerodefaultbackup}
 velero backup download ${velerodefaultbackup}
 tar -xvzf ${velerodefaultbackup}-data.tar.gz
 
-# the intent is to verify the preferred version from the patch matches the default 1.5
+# the intent is to verify the preferred version from the local build matches the default
 echo ""
 echo "INFO: Comparing the two backups - ignore errors on velero objects and time based objects - some might not exist among the two backups"
 echo ""

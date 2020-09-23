@@ -20,7 +20,7 @@ kind create cluster --name=$CLUSTER || exit 1
 export BUCKET=test-velero-migration
 export REGION=us-east-2
 export SECRETFILE=credentials-dave
-export VERSION=dev-dave-0916
+export VERSION=dev-dave-0923a
 export PREFIX=$VERSION
 
 # ----
@@ -60,6 +60,8 @@ kind create cluster --name=$CLUSTER || exit 1
 # install velero 1.5 and create backup
 # ----
 
+export IMAGE=velero/velero:latest
+
 echo ""
 echo "INFO: Installing 1.5 cluster"  
 
@@ -70,7 +72,8 @@ velero install \
   --prefix $PREFIX \
   --backup-location-config region=$REGION \
   --snapshot-location-config region=$REGION \
-  --secret-file $SECRETFILE
+  --secret-file $SECRETFILE \
+  --image $IMAGE
 
 echo ""
 echo "INFO: Creating 1.5 backup"
