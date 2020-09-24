@@ -2,21 +2,22 @@
 
 - 2251-dev-test.sh                
     - script for testing api groups
-- credentials-dave                
-    - copy of aws creds
 - credentials-velero.example      
     - format of aws cred file
 - dave-test.sh                    
     - modification of 2251-dev-test.sh
-- developers-guide-to-velero.docx 
-    - original ms word file with pictures
-- developers-guide-to-velero.md   
-    - markdown version of the dev guide
-- kind-create-clusterh.sh         
-    - script to create cluster, install velero 1.4/1.5, and backup
+    - more of a version update
+- kind-create-cluster.sh         
+    - test script to create cluster, install velero 1.4/1.5, and backup
+- install-plugins.sh
+    - script to install velero, deploy sample plugins, backup using plugins
 - myexample-test.yaml
+    - horizontal pod scaling example
+    - called within 2251-dev-test.sh and dave-test.sh
 - patch-velero.sh
 - README.md                       
     - this file
 - velero-allversions-patch.yaml
+    - enable API group versions
+    - called within 2251-dev-test.sh and dave-test.sh
 - velero-patch.yaml

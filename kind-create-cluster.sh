@@ -1,5 +1,8 @@
 #set -x
 
+# kind-create-cluster.sh
+# - basically a quick test script to install velero 1.4/1.5 and create a backup to aws
+
 timestamp=`date +%m%d%H%M`
 
 export CLUSTER=velero-dev
@@ -14,7 +17,7 @@ fi
 echo ""
 echo "INFO: create cluster"
 kind create cluster --name=$CLUSTER || exit 1
-#kind create cluster --image=kindest/node:v1.16.4 --name=$CLUSTER || exit 1
+#kind create cluster --image=kindest/node:v1.19.0 --name=$CLUSTER || exit 1
 
 # setting up velero
 export BUCKET=test-velero-migration
@@ -84,6 +87,6 @@ while  [ "$(velero backup get ${velerotestingbackup} | tail -1 | awk '{print $2}
 
 echo "INFO: 1.5 backup complete"
 
-echo ""
-echo "INFO: Deleting cluster"
-kind delete cluster --name=$CLUSTER
+#echo ""
+#echo "INFO: Deleting cluster"
+#kind delete cluster --name=$CLUSTER

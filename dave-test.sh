@@ -1,7 +1,10 @@
 #set -x
 
-# Goal of this script
-#   - show that you can migrate across multiple k8s versions (i.e.  k8s 1.18 to k8s 1.19)
+# dave-test.sh
+# - show that you can migrate across multiple k8s versions (i.e.  k8s 1.18 to k8s 1.19)
+# - this is a slightly updated version of the 2251-dev-test script
+# - updated kindest/node versions
+# - updated velero versions
 
 timestamp=`date +%m%d%H%M`
 
@@ -33,7 +36,7 @@ kubectl get hpa php-apache-autoscaler -n myexample
 # Here's the aws structure
 # BUCKET = name of S3 bucket
 # PREFIX = name of folder under S3 bucket (BUCKET)
-# then there is a folder named "backups" under PREFIX
+# then there is a folder named "backups" or "restore" under PREFIX
 # VERSION = the folder under backups that contains the json gzips
 
 # setting up velero
@@ -184,6 +187,7 @@ for i in `find resources/ -type f -not -path "*/events/*"`; do origprefversion=`
 
 cd ../../
 
-echo ""
-echo "INFO: Deleting cluster"
-kind delete cluster --name=$CLUSTER
+# don't delete the cluster in case you want to look at it
+#echo ""
+#echo "INFO: Deleting cluster"
+#kind delete cluster --name=$CLUSTER
